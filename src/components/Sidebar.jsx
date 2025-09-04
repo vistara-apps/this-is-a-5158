@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Sparkles, 
   Layers, 
-  Grid3X3, 
+  LayoutTemplate, 
   History, 
   User, 
   Settings,
@@ -13,7 +13,7 @@ const Sidebar = ({ currentView, setCurrentView, user }) => {
   const menuItems = [
     { id: 'generate', label: 'Generate', icon: Sparkles, requiresAuth: true },
     { id: 'batch', label: 'Batch', icon: Layers, requiresAuth: true },
-    { id: 'templates', label: 'Templates', icon: Grid3X3, requiresAuth: true },
+    { id: 'templates', label: 'Templates', icon: LayoutTemplate, requiresAuth: true },
     { id: 'history', label: 'History', icon: History, requiresAuth: true },
     { id: 'account', label: 'Account', icon: User, requiresAuth: true },
   ];
