@@ -9,13 +9,13 @@ import {
   Zap 
 } from 'lucide-react';
 
-const Sidebar = ({ currentView, setCurrentView }) => {
+const Sidebar = ({ currentView, setCurrentView, user }) => {
   const menuItems = [
-    { id: 'generate', label: 'Generate', icon: Sparkles },
-    { id: 'batch', label: 'Batch', icon: Layers },
-    { id: 'templates', label: 'Templates', icon: Grid3X3 },
-    { id: 'history', label: 'History', icon: History },
-    { id: 'account', label: 'Account', icon: User },
+    { id: 'generate', label: 'Generate', icon: Sparkles, requiresAuth: true },
+    { id: 'batch', label: 'Batch', icon: Layers, requiresAuth: true },
+    { id: 'templates', label: 'Templates', icon: Grid3X3, requiresAuth: true },
+    { id: 'history', label: 'History', icon: History, requiresAuth: true },
+    { id: 'account', label: 'Account', icon: User, requiresAuth: true },
   ];
 
   return (
@@ -33,12 +33,17 @@ const Sidebar = ({ currentView, setCurrentView }) => {
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
+            const isDisabled = item.requiresAuth && !user;
+            
             return (
               <li key={item.id}>
                 <button
-                  onClick={() => setCurrentView(item.id)}
+                  onClick={() => !isDisabled && setCurrentView(item.id)}
+                  disabled={isDisabled}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    currentView === item.id
+                    isDisabled
+                      ? 'text-textSecondary/50 cursor-not-allowed'
+                      : currentView === item.id
                       ? 'bg-primary/20 text-primary border border-primary/30'
                       : 'text-textSecondary hover:text-textPrimary hover:bg-surface/50'
                   }`}
