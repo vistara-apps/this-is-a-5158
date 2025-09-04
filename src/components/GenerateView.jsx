@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import PromptInput from './PromptInput';
 import StylePresets from './StylePresets';
 import ImageDisplay from './ImageDisplay';
 import GenerationSettings from './GenerationSettings';
+import { generateImage, generateImageWithDALLE } from '../services/stabilityApi';
+import { saveGeneration } from '../services/supabase';
 
 const GenerateView = ({ user, addToHistory, useCredits }) => {
   const [prompt, setPrompt] = useState('');
@@ -17,7 +20,10 @@ const GenerateView = ({ user, addToHistory, useCredits }) => {
   });
 
   const handleGenerate = async () => {
-    if (!prompt.trim() || user.credits < 1) return;
+    if (!prompt.trim() || !user || user.credits < 1) {
+      toast.error('Insufficient credits or invalid prompt');
+      return;
+    }
     
     setIsGenerating(true);
     
@@ -27,38 +33,64 @@ const GenerateView = ({ user, addToHistory, useCredits }) => {
       if (selectedPreset) {
         fullPrompt = `${prompt}, ${selectedPreset.promptModifier}`;
       }
-      if (negativePrompt) {
-        fullPrompt += `. Avoid: ${negativePrompt}`;
+
+      // Use credits first
+      const creditsUsed = await useCredits(1);
+      if (!creditsUsed) {
+        toast.error('Failed to use credits');
+        return;
       }
 
-      // Simulate API call (replace with actual OpenAI API call)
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      let images;
       
-      // Mock generated image (in real implementation, use OpenAI API)
-      const mockImage = {
-        id: Date.now(),
-        url: `https://picsum.photos/1024/1024?random=${Date.now()}`,
+      // Try Stability AI first, fallback to DALL-E
+      try {
+        images = await generateImage(fullPrompt, {
+          negativePrompt,
+          width: parseInt(settings.size.split('x')[0]),
+          height: parseInt(settings.size.split('x')[1]),
+          style: selectedPreset?.id || 'enhance'
+        });
+      } catch (stabilityError) {
+        console.warn('Stability AI failed, trying DALL-E:', stabilityError);
+        images = await generateImageWithDALLE(fullPrompt, {
+          size: settings.size,
+          quality: settings.quality,
+          style: settings.style
+        });
+      }
+      
+      setGeneratedImages(images);
+      
+      // Save to database
+      const generation = {
+        user_id: user.user_id,
         prompt: fullPrompt,
-        settings,
-        createdAt: new Date().toISOString(),
-      };
-      
-      setGeneratedImages([mockImage]);
-      useCredits(1);
-      
-      // Add to history
-      addToHistory({
-        id: Date.now(),
-        prompt: fullPrompt,
-        negativePrompt,
-        stylePreset: selectedPreset?.name || 'None',
-        imageUrls: [mockImage.url],
-        createdAt: new Date().toISOString(),
+        negative_prompt: negativePrompt,
+        style_preset: selectedPreset?.name || 'None',
+        image_urls: images.map(img => img.url),
+        settings: JSON.stringify(settings),
+        created_at: new Date().toISOString(),
         status: 'completed'
-      });
+      };
+
+      const savedGeneration = await saveGeneration(generation);
+      
+      // Add to local history
+      addToHistory(savedGeneration);
+      
+      toast.success('Image generated successfully!');
       
     } catch (error) {
       console.error('Generation failed:', error);
+      toast.error(error.message || 'Failed to generate image');
+      
+      // Refund credits on failure
+      try {
+        await useCredits(-1); // Add credit back
+      } catch (refundError) {
+        console.error('Failed to refund credits:', refundError);
+      }
     } finally {
       setIsGenerating(false);
     }
